@@ -122,13 +122,27 @@ function editKey(force){
   if(!k||force){ k=prompt("Clave de edición de la planilla HTP:"); if(!k) throw new Error("Se requiere la clave de edición"); try{ localStorage.setItem("htp_sheet_key",k); }catch(e){} }
   return k;
 }
+function jsonp(params, timeout=30000){
+  return new Promise((resolve,reject)=>{
+    const cb="htpcb_"+Date.now()+"_"+Math.floor(Math.random()*1e6);
+    const qs=new URLSearchParams({...params,callback:cb,t:Date.now()}).toString();
+    const sc=document.createElement("script");
+    const done=()=>{ delete window[cb]; sc.remove(); clearTimeout(tm); };
+    const tm=setTimeout(()=>{ done(); reject(new Error("Google Sheets no respondió (tiempo agotado)")); },timeout);
+    window[cb]=data=>{ done(); resolve(data); };
+    sc.onerror=()=>{ done(); reject(new Error("No se pudo conectar con Google Sheets")); };
+    sc.src=SHEETS_API_URL+(SHEETS_API_URL.includes("?")?"&":"?")+qs;
+    document.body.appendChild(sc);
+  });
+}
 async function sheetPost(body, retry=true){
-  const res=await fetch(SHEETS_API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...body,key:editKey(false)})}).then(r=>r.json());
+  const {action,...rest}=body;
+  const res=await jsonp({action,payload:JSON.stringify({...rest,key:editKey(false)})});
   if(!res.ok){ if(/clave/i.test(res.error)&&retry){ editKey(true); return sheetPost(body,false); } throw new Error(res.error); }
   return res;
 }
 async function sheetLoad(){
-  const res=await fetch(SHEETS_API_URL+(SHEETS_API_URL.includes("?")?"&":"?")+"t="+Date.now()).then(r=>r.json());
+  const res=await jsonp({});
   if(!res.ok) throw new Error(res.error);
   DATA=res.rows.filter(h=>h.Nave).map((h,i)=>({...fromExcelRow(h),id:String(h.ID||"g"+(i+1))}));
   if(!DATA.length) showBanner(`La planilla de Google Sheets está vacía. <button class="btn sm navy" id="btnSeed">Cargar los ${SEED.length} servicios del Excel inicial</button>`);
@@ -143,7 +157,7 @@ async function initStore(){
       mode:"sheets",
       save: async r => { await sheetPost({action:"save",row:toSheetRow(r)}); await sheetLoad(); },
       remove: async id => { await sheetPost({action:"delete",id}); await sheetLoad(); },
-      bulk: async rows => { for(let i=0;i<rows.length;i+=50) await sheetPost({action:"bulk",rows:rows.slice(i,i+50).map(toSheetRow)}); await sheetLoad(); },
+      bulk: async rows => { for(let i=0;i<rows.length;i+=4) await sheetPost({action:"bulk",rows:rows.slice(i,i+4).map(toSheetRow)}); await sheetLoad(); },
     };
     $("#modo").className="status cloud"; $("#modo").textContent="GOOGLE SHEETS · EN LÍNEA";
     $("#btnLogin").style.display=""; $("#btnLogin").textContent="↻ Actualizar";
