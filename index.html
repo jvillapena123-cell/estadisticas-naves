@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Estadística de Naves · HTP</title>
+<link rel="icon" href="logo-htp.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#1F3A6E;--navy-2:#2B4C8A;--navy-d:#152a52;--orange:#E8804A;--orange-l:#F4A77E;
+  --bg:#F3F5F9;--card:#FFFFFF;--ink:#1A2233;--muted:#667089;--line:#E1E6EF;
+  --ok:#2E9E6B;--warn:#E0A400;--bad:#D2463C;--teal:#2A9DB5;--violet:#7B6CC9;
+  --shadow:0 1px 2px rgba(20,35,70,.06),0 4px 16px rgba(20,35,70,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Montserrat,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+button,input,select,textarea{font-family:inherit;font-size:13px}
+/* header */
+header{background:var(--card);border-bottom:3px solid var(--orange);position:sticky;top:0;z-index:20}
+.hbar{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:18px;padding:10px 20px;flex-wrap:wrap}
+.hbar img{height:42px}
+.htitle{flex:1;min-width:200px}
+.htitle h1{margin:0;font-size:18px;color:var(--navy);font-weight:800;letter-spacing:.2px}
+.htitle p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.hactions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;color:var(--navy);padding:8px 13px;border-radius:8px;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.btn:hover{border-color:var(--navy)}
+.btn.primary{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn.primary:hover{background:#d96d36}
+.btn.navy{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.danger{color:var(--bad);border-color:#f0c9c5}
+.btn.sm{padding:5px 9px;font-size:12px}
+.status{font-size:11px;padding:4px 9px;border-radius:20px;font-weight:700;letter-spacing:.3px}
+.status.cloud{background:#E3F4EC;color:var(--ok)}
+.status.local{background:#FFF4DC;color:#9a6c00}
+/* tabs */
+nav.tabs{background:var(--navy)}
+.tabs .in{max-width:1440px;margin:0 auto;display:flex;gap:2px;padding:0 20px;overflow-x:auto}
+.tab{background:none;border:0;color:#c7d3ec;padding:12px 16px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.tab.active{color:#fff;border-bottom-color:var(--orange)}
+main{max-width:1440px;margin:0 auto;padding:18px 20px 60px}
+.view{display:none}.view.active{display:block}
+/* filters */
+.filters{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px}
+.f{display:flex;flex-direction:column;gap:4px;min-width:120px;flex:1}
+.f label{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.f select,.f input{border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:#fff;color:var(--ink)}
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--navy)}
+.kpi.o::before{background:var(--orange)}.kpi.g::before{background:var(--ok)}.kpi.t::before{background:var(--teal)}.kpi.r::before{background:var(--bad)}
+.kpi .l{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.kpi .v{font-size:25px;font-weight:800;color:var(--navy);margin-top:6px;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi .s{font-size:11.5px;color:var(--muted);margin-top:4px}
+.delta{font-weight:700}.delta.up{color:var(--ok)}.delta.dn{color:var(--bad)}
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px 16px;min-width:0}
+.card h3{margin:0 0 2px;font-size:13.5px;color:var(--navy);font-weight:700}
+.card .sub{margin:0 0 10px;font-size:11.5px;color:var(--muted)}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c6{grid-column:span 6}.c4{grid-column:span 4}.c5{grid-column:span 5}.c7{grid-column:span 7}
+.ch{position:relative;height:280px}.ch.tall{height:340px}.ch.sm{height:240px}
+@media (max-width:1000px){.c8,.c6,.c4,.c5,.c7{grid-column:span 12}}
+/* table */
+.tblwrap{overflow:auto;max-height:68vh;border-radius:10px;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{position:sticky;top:0;background:var(--navy);color:#fff;text-align:left;padding:9px 10px;font-weight:600;white-space:nowrap;cursor:pointer;user-select:none;z-index:1}
+td{padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+tbody tr:nth-child(even){background:#F8FAFD}
+tbody tr:hover{background:#FFF3EC}
+td.num{text-align:right}
+.pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+.pill.desc{background:#E5ECF8;color:var(--navy)}.pill.emb{background:#FCE9DE;color:#B3541F}.pill.otro{background:#EEE;color:#555}
+.cump{font-weight:700}.cump.ok{color:var(--ok)}.cump.mid{color:#B98400}.cump.bad{color:var(--bad)}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:200px;border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+/* ranking list */
+.rank{list-style:none;margin:0;padding:0}
+.rank li{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.rank li:last-child{border:0}
+.rank .i{font-weight:800;color:var(--orange)}
+.rank .bar{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--navy),var(--navy-2));margin-top:4px}
+.rank .val{font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+/* modal form */
+.modal{position:fixed;inset:0;background:rgba(15,25,50,.55);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 12px}
+.modal.open{display:flex}
+.mbox{background:#fff;border-radius:14px;max-width:1000px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.mhead{background:var(--navy);color:#fff;padding:14px 20px;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:center}
+.mhead h2{margin:0;font-size:16px}
+.mhead button{background:none;border:0;color:#fff;font-size:22px;cursor:pointer}
+.mbody{padding:18px 20px}
+fieldset{border:1px solid var(--line);border-radius:10px;margin:0 0 14px;padding:12px 14px}
+legend{font-weight:800;color:var(--orange);font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;padding:0 6px}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.fg .f{min-width:0}
+.calc{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;background:#F4F7FC;border-radius:10px;padding:12px}
+.calc div{font-size:11px;color:var(--muted);font-weight:600}
+.calc b{display:block;font-size:16px;color:var(--navy);margin-top:3px}
+.mfoot{display:flex;justify-content:space-between;gap:10px;padding:14px 20px;border-top:1px solid var(--line);flex-wrap:wrap}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy-d);color:#fff;padding:11px 18px;border-radius:9px;font-weight:600;z-index:60;opacity:0;transition:.25s;pointer-events:none}
+.toast.show{opacity:1}
+.banner{background:#FFF4DC;border:1px solid #F2D58A;color:#7a5600;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;display:none}
+.empty{text-align:center;color:var(--muted);padding:40px}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
+@media (max-width:640px){.hbar img{height:32px}.htitle h1{font-size:15px}main{padding:14px 12px 50px}.kpi .v{font-size:21px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hbar">
+    <img src="logo-htp.png" alt="HTP">
+    <div class="htitle">
+      <h1>Estadística Operacional de Naves</h1>
+      <p>Huachipato Terminal Portuario · Bahía San Vicente</p>
+    </div>
+    <div class="hactions">
+      <span id="modo" class="status local">MODO LOCAL</span>
+      <button class="btn primary" id="btnNuevo">＋ Ingresar servicio</button>
+      <button class="btn" id="btnImport">⬆ Importar Excel</button>
+      <button class="btn" id="btnExport">⬇ Exportar Excel</button>
+      <button class="btn navy" id="btnLogin" style="display:none">Iniciar sesión</button>
+      <input type="file" id="fileXlsx" accept=".xlsx,.xls" hidden>
+    </div>
+  </div>
+  <nav class="tabs"><div class="in">
+    <button class="tab active" data-v="resumen">Resumen ejecutivo</button>
+    <button class="tab" data-v="productividad">Productividad y rates</button>
+    <button class="tab" data-v="muelle">Muelle y detenciones</button>
+    <button class="tab" data-v="clientes">Clientes y productos</button>
+    <button class="tab" data-v="servicios">Registro de servicios</button>
+  </div></nav>
+</header>
+
+<main>
+  <div class="banner" id="banner"></div>
+
+  <section class="filters" id="filters">
+    <div class="f"><label>Año</label><select id="fAnio"></select></div>
+    <div class="f"><label>Mes</label><select id="fMes"></select></div>
+    <div class="f"><label>Proceso</label><select id="fProceso"></select></div>
+    <div class="f"><label>Producto</label><select id="fProducto"></select></div>
+    <div class="f"><label>Cliente</label><select id="fCliente"></select></div>
+    <div class="f"><label>Sitio</label><select id="fSitio"></select></div>
+    <div class="f" style="flex:0"><button class="btn" id="btnLimpiar">Limpiar</button></div>
+  </section>
+
+  <!-- RESUMEN -->
+  <section class="view active" id="v-resumen">
+    <div class="kpis" id="kpisResumen"></div>
+    <div class="grid">
+      <div class="card c8"><h3>Toneladas transferidas por mes</h3><p class="sub">Descarga vs. embarque, con N° de naves atendidas</p><div class="ch tall"><canvas id="chMes"></canvas></div></div>
+      <div class="card c4"><h3>Mix de transferencia</h3><p class="sub">Toneladas por proceso</p><div class="ch tall"><canvas id="chProceso"></canvas></div></div>
+      <div class="card c6"><h3>Toneladas por producto</h3><p class="sub">Top 10 productos del período</p><div class="ch"><canvas id="chProducto"></canvas></div></div>
+      <div class="card c6"><h3>Naves por sitio y operador</h3><p class="sub">Atenciones en Sitio Norte / Sur</p><div class="ch"><canvas id="chSitio"></canvas></div></div>
+      <div class="card c12"><h3>Comparativo interanual</h3><p class="sub">Toneladas acumuladas mes a mes por año</p><div class="ch"><canvas id="chYoY"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- PRODUCTIVIDAD -->
+  <section class="view" id="v-productividad">
+    <div class="kpis" id="kpisProd"></div>
+    <div class="grid">
+      <div class="card c12"><h3>Rate alcanzado vs. contratado por nave</h3><p class="sub">Tons/día · últimas 25 naves del filtro con rate contratado</p><div class="ch tall"><canvas id="chRate"></canvas></div></div>
+      <div class="card c7"><h3>Cumplimiento comercial por mes</h3><p class="sub">Mediana % rate alcanzado / contratado (meta 100%)</p><div class="ch"><canvas id="chCumpl"></canvas></div></div>
+      <div class="card c5"><h3>Rendimiento por producto</h3><p class="sub">Tons/hr bruto (mediana por producto)</p><div class="ch"><canvas id="chTph"></canvas></div></div>
+      <div class="card c6"><h3>Top 10 naves más productivas</h3><p class="sub">Tons/hr bruto</p><ul class="rank" id="rankTop"></ul></div>
+      <div class="card c6"><h3>Naves bajo rate contratado</h3><p class="sub">Menor % de cumplimiento comercial</p><ul class="rank" id="rankLow"></ul></div>
+    </div>
+  </section>
+
+  <!-- MUELLE -->
+  <section class="view" id="v-muelle">
+    <div class="kpis" id="kpisMuelle"></div>
+    <div class="grid">
+      <div class="card c8"><h3>Horas de uso de muelle por mes</h3><p class="sub">Por sitio</p><div class="ch"><canvas id="chMuelle"></canvas></div></div>
+      <div class="card c4"><h3>Detenciones por causa</h3><p class="sub">Horas totales</p><div class="ch"><canvas id="chDet"></canvas></div></div>
+      <div class="card c12"><h3>Distribución del tiempo en muelle por nave</h3><p class="sub">Operación efectiva, detenciones y tiempo sin operación (horas) · últimas 25 naves</p><div class="ch tall"><canvas id="chTiempo"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- CLIENTES -->
+  <section class="view" id="v-clientes">
+    <div class="kpis" id="kpisCli"></div>
+    <div class="grid">
+      <div class="card c6"><h3>Toneladas por cliente</h3><p class="sub">Participación en el período</p><div class="ch tall"><canvas id="chCliente"></canvas></div></div>
+      <div class="card c6"><h3>Naves por tipo de carga</h3><p class="sub">Cantidad de servicios</p><div class="ch tall"><canvas id="chTipo"></canvas></div></div>
+      <div class="card c12"><h3>Matriz cliente × producto</h3><p class="sub">Toneladas transferidas</p><div class="tblwrap" style="max-height:420px"><table id="tblMatriz"></table></div></div>
+    </div>
+  </section>
+
+  <!-- SERVICIOS -->
+  <section class="view" id="v-servicios">
+    <div class="toolbar">
+      <input id="buscar" placeholder="Buscar nave, cliente, producto, equipo…">
+      <span id="conteo" style="color:var(--muted);font-size:12px"></span>
+      <button class="btn primary" id="btnNuevo2">＋ Ingresar servicio</button>
+    </div>
+    <div class="tblwrap"><table id="tbl"></table></div>
+  </section>
+</main>
+<footer>HTP · Gerencia de Operaciones · Datos en <span id="fuente">este navegador</span></footer>
+
+<!-- MODAL FORM -->
+<div class="modal" id="modal">
+  <div class="mbox">
+    <div class="mhead"><h2 id="mTitle">Ingresar servicio de nave</h2><button id="mClose" aria-label="Cerrar">×</button></div>
+    <form id="form">
+      <div class="mbody">
+        <fieldset><legend>Identificación</legend><div class="fg" id="gId"></div></fieldset>
+        <fieldset><legend>Tonelaje</legend><div class="fg" id="gTon"></div></fieldset>
+        <fieldset><legend>Tiempos de operación</legend><div class="fg" id="gTie"></div></fieldset>
+        <fieldset><legend>Detenciones (horas)</legend><div class="fg" id="gDet"></div></fieldset>
+        <fieldset><legend>Contrato, costos y personal</legend><div class="fg" id="gCos"></div></fieldset>
+        <fieldset><legend>Indicadores calculados automáticamente</legend><div class="calc" id="calc"></div></fieldset>
+      </div>
+      <div class="mfoot">
+        <button type="button" class="btn danger" id="btnDel">Eliminar servicio</button>
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <button type="button" class="btn" id="btnCancel">Cancelar</button>
+          <button type="submit" class="btn primary">Guardar servicio</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<datalist id="dlNave"></datalist><datalist id="dlCliente"></datalist><datalist id="dlProducto"></datalist><datalist id="dlEquipo"></datalist><datalist id="dlOperador"></datalist>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
